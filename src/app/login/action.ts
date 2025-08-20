@@ -1,21 +1,45 @@
-"use server";
+// app/login/action.ts
+'use server';
 
-import { validateLogin } from '@/libs/validation';
-import axios from 'axios';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { LoginSchema } from '@/schemas/auth/login';
 
-export async function loginAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
-  const email = formData.get("email");
-  const password = formData.get("password");
+type State = { ok: boolean; error?: string | null };
 
-  const result = validateLogin({ email, password });
-  if (!result.success) {
-    return { success: false, error: result.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
+export async function loginAction(prevState: State, formData: FormData): Promise<State> {
+  // 1) Coerce form values to string
+  const raw = {
+    email: String(formData.get('email') ?? ''),
+    password: String(formData.get('password') ?? ''),
+  };
+
+  // 2) Validate
+  const parsed = LoginSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'ข้อมูลไม่ถูกต้อง' };
   }
 
-  // TODO: เชื่อมต่อ API จริง เช่น Supabase หรือ Prisma
-  // ตัวอย่าง mock
-  if (email === "test@midori.dev" && password === "password123") {
-    return { success: true };
+  const { email, password } = parsed.data;
+
+  // 3) TODO: เชื่อม Auth จริง (เช่น Supabase Auth, NextAuth, Prisma + bcrypt)
+  const authenticated = email === 'kornkorn@gmail.com' && password === 'kornkorn';
+
+  if (!authenticated) {
+    // แนะนำให้ส่งข้อความ error กลาง ๆ เพื่อไม่บอกใบ้ว่าอีเมลมีจริงหรือไม่
+    return { ok: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
   }
-  return { success: false, error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
+
+  // 4) Set session cookie (mock)
+  const cookieStore = await cookies();
+  cookieStore.set('midori_session', 'mock-session-token', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7, // 7 วัน
+  });
+
+  // 5) Redirect หลังสำเร็จ
+  redirect('/');
 }

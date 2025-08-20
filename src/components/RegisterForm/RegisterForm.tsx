@@ -1,12 +1,13 @@
-// LoginForm.tsx (client)
+// RegisterForm.tsx (client)
 'use client';
-import { useActionState, useState, useEffect, useRef } from 'react';
+
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button/Button';
-import { loginAction } from '@/app/login/action';
-import { LoginSchema, type LoginInput } from '@/schemas/auth/login';
-import { LoginFormData, LoginValidationErrors, AuthState } from '@/types/auth';
+import { registerAction } from '@/app/register/action';
+import { RegisterSchema, type RegisterInput } from '@/schemas/auth/register';
+import { RegisterFormData, RegisterValidationErrors, AuthState } from '@/types/auth';
 
 const initialState: AuthState = { ok: false, error: null };
 
@@ -21,18 +22,19 @@ function SubmitButton() {
       aria-disabled={pending}
       disabled={pending}
     >
-      เข้าสู่ระบบ
+      สมัครสมาชิก
     </Button>
   );
 }
 
-export function LoginForm() {
-  const [state, formAction] = useActionState(loginAction, initialState);
-  const [formData, setFormData] = useState<LoginFormData>({
+export function RegisterForm() {
+  const [state, formAction] = useActionState(registerAction, initialState);
+  const [formData, setFormData] = useState<RegisterFormData>({
+    name: '',
     email: '',
     password: ''
   });
-  const [clientErrors, setClientErrors] = useState<LoginValidationErrors>({});
+  const [clientErrors, setClientErrors] = useState<RegisterValidationErrors>({});
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
@@ -40,11 +42,11 @@ export function LoginForm() {
   useEffect(() => {
     if (state.ok) {
       // ล้างข้อมูลฟอร์ม
-      setFormData({ email: '', password: '' });
+      setFormData({ name: '', email: '', password: '' });
       formRef.current?.reset();
       // Redirect หลังสำเร็จ 2 วินาที
       const timer = setTimeout(() => {
-        router.push('/');
+        router.push('/login');
       }, 2000);
       return () => clearTimeout(timer);
     }
@@ -72,22 +74,21 @@ export function LoginForm() {
   // Client-side validation ก่อน submit
   const handleSubmit = async (formDataSubmit: FormData) => {
     // ใช้ formData state เป็นหลัก เพื่อ UX ที่ดีในการ validation
-    const { email, password } = formData;
+   const { name, email, password } = formData;
 
     // ตรวจสอบด้วย Zod schema
-    const validation = LoginSchema.safeParse({ email, password });
+    const validation = RegisterSchema.safeParse({ name, email, password });
 
     if (!validation.success) {
-      const errors: LoginValidationErrors = {};
+      const errors: RegisterValidationErrors = {};
       validation.error.issues.forEach((issue) => {
         const field = issue.path[0];
-        // Type guard แก้ไข: ตรวจสอบว่าเป็น field ที่ valid
-        if (typeof field === 'string' && (field === 'email' || field === 'password')) {
-          errors[field as keyof LoginValidationErrors] = issue.message;
+        if (typeof field === 'string' && (field === 'name' || field === 'email' || field === 'password')) {
+          errors[field as keyof RegisterValidationErrors] = issue.message;
         }
       });
       setClientErrors(errors);
-      return; // หยุดการ submit หากมี validation error
+      return;
     }
 
     // ล้าง client errors แล้ว submit
@@ -112,6 +113,35 @@ export function LoginForm() {
         </div>
       )}
 
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          ชื่อ
+        </label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          autoComplete="name"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          className="mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+          aria-invalid={!!clientErrors.name}
+          aria-describedby={clientErrors.name ? 'name-error' : undefined}
+          placeholder="ชื่อของคุณ"
+        />
+        {clientErrors.name && (
+          <div
+            id="name-error"
+            role="alert"
+            aria-live="polite"
+            className="mt-1 text-sm text-red-600"
+          >
+            {clientErrors.name}
+          </div>
+        )}
+      </div>
+      
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
           อีเมล
@@ -149,7 +179,7 @@ export function LoginForm() {
           id="password"
           name="password"
           type="password"
-          autoComplete="current-password"
+          autoComplete="new-password"
           value={formData.password}
           onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
           className="mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -171,6 +201,16 @@ export function LoginForm() {
       </div>
 
       <SubmitButton />
+      
+      {state.ok && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="p-2 bg-green-50 border border-green-200 rounded text-green-700 text-sm mt-2"
+        >
+          สมัครสมาชิกสำเร็จ!
+        </div>
+      )}
     </form>
   );
 }
