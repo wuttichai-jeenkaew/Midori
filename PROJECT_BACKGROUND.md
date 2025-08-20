@@ -57,13 +57,33 @@ Midori เป็น AI assistant ที่มีบุคลิกเป็น�
 ### Backend Architecture
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Next.js API    │───▶│   AI Services   │───▶│   Supabase DB   │
+│  Next.js API    │───▶│   AI Services   │───▶│   AWS RDS DB    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Rate Limiting  │    │  Token Manager  │    │  Auth System    │
+│  Rate Limiting  │    │  Token Manager  │    │  AWS Cognito    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### AWS Deployment Topology
+```
+User
+  │
+  ▼
+CloudFront (CDN)
+  │                ┌────────────────────────┐
+  ├──► S3 (Static) │  Static Assets/Images  │
+  │                └────────────────────────┘
+  ▼
+API Gateway ───► Lambda (Next.js API/SSR, Node.js 18)
+                        │
+                        ├──► Amazon RDS (PostgreSQL, Multi-AZ)
+                        ├──► Amazon ElastiCache (Redis)
+                        └──► Amazon Cognito (Auth)
+
+Observability: Amazon CloudWatch (Logs/Metrics/Alarms)
+Provisioning: AWS CDK (โฟลเดอร์ `Midori/midori-infastructure`)
 ```
 
 ## 🎨 Design Philosophy
@@ -94,12 +114,29 @@ Midori เป็น AI assistant ที่มีบุคลิกเป็น�
 - **Maintainability**: โค้ดที่อ่านง่ายและบำรุงรักษาง่าย
 - **Team Collaboration**: ลดความสับสนในการทำงานเป็นทีม
 
-### Why Supabase?
-- **Real-time**: Live updates
-- **Auth**: Built-in authentication
-- **Database**: PostgreSQL with real-time subscriptions
-- **Edge Functions**: Serverless functions
-- **Open Source**: Transparent and customizable
+### Why AWS Database Services?
+- **Scalability**: Auto-scaling database resources
+- **Reliability**: High availability with multi-AZ deployment
+- **Security**: Advanced security features and encryption
+- **Performance**: Optimized for high-performance applications
+- **Integration**: Seamless integration with other AWS services
+
+### AWS Database Architecture
+- **Amazon RDS**: Managed relational database service (PostgreSQL/MySQL)
+- **Amazon DynamoDB**: NoSQL database for real-time applications
+- **Amazon ElastiCache**: In-memory caching for improved performance
+- **Amazon Cognito**: User authentication and authorization
+- **AWS Lambda**: Serverless functions for database operations
+
+### Cloud Platform & Deployment (AWS)
+- **Cloud Provider**: ใช้ AWS เป็นผู้ให้บริการคลาวด์หลัก 100% สำหรับทั้งโฮสติ้งและดาต้าเบส
+- **Provisioning**: ใช้ AWS CDK ผ่านสแตก `midori-infastructure` เพื่อประกาศโครงสร้างพื้นฐานเป็นโค้ด (IaC)
+- **Frontend/SSR**: ให้บริการ Next.js API/SSR ผ่าน AWS Lambda (Node.js 18) หลัง API Gateway และเสิร์ฟ Static Assets ผ่าน S3 + CloudFront
+- **Database**: ฐานข้อมูลหลักใช้ Amazon RDS (PostgreSQL, Multi-AZ, Backup/Point-in-Time Recovery) พร้อมจัดการความลับผ่าน AWS Secrets Manager
+- **Caching**: ใช้ Amazon ElastiCache (Redis) เพื่อเร่งประสิทธิภาพและลดภาระฐานข้อมูล
+- **Authentication**: ใช้ Amazon Cognito สำหรับการลงทะเบียน/เข้าสู่ระบบ/จัดการโทเค็น
+- **Observability**: ติดตามด้วย Amazon CloudWatch (Logs/Metrics/Alarms) และ AWS X-Ray (ถ้าจำเป็น)
+- **CI/CD**: สร้างท่อส่งงานด้วย GitHub Actions หรือ AWS CodePipeline เพื่อ build/deploy CDK และแอปพลิเคชันอัตโนมัติ
 
 ### Why Monaco Editor?
 - **VS Code Experience**: ฟีเจอร์เหมือน VS Code
@@ -225,7 +262,8 @@ Midori เป็น AI assistant ที่มีบุคลิกเป็น�
 
 ### Partnerships
 - **AI Providers**: OpenAI, DeepSeek, Anthropic
-- **Cloud Providers**: Vercel, Netlify, AWS
+- **Cloud Providers**: AWS (Deployment)
+- **AWS Services**: RDS, DynamoDB, Cognito, Lambda, ElastiCache
 - **Design Tools**: Figma, Sketch, Adobe
 - **Development Tools**: VS Code, GitHub, GitLab
 
@@ -234,4 +272,4 @@ Midori เป็น AI assistant ที่มีบุคลิกเป็น�
 
 ## 🎯 สรุป
 
-Midori เป็นมากกว่าแค่เครื่องมือสร้างเว็บไซต์ แต่เป็นเพื่อนที่ช่วยให้ทุกคนสามารถสร้างเว็บไซต์ได้อย่างง่ายดาย โดยใช้พลังของ AI และการออกแบบที่เน้นผู้ใช้เป็นศูนย์กลาง
+Midori เป็นมากกว่าแค่เครื่องมือสร้างเว็บไซต์ แต่เป็นเพื่อนที่ช่วยให้ทุกคนสามารถสร้างเว็บไซต์ได้อย่างง่ายดาย โดยใช้พลังของ AI และการออกแบบที่เน้นผู้ใช้เป็นศูนย์กลาง ปัจจุบันระบบเลือกใช้ฐานข้อมูลบน AWS (Amazon RDS) และดีพลอยโครงสร้างพื้นฐานทั้งหมดบน AWS ผ่าน AWS CDK พร้อมเสิร์ฟคอนเทนต์ผ่าน CloudFront/S3 และให้บริการ API/SSR ด้วย Lambda เพื่อความเสถียร ปลอดภัย และขยายตัวได้ในระยะยาว
