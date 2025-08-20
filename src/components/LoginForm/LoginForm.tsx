@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/componetns/Button/Button';
-import { ErrorMessage } from '@/componetns/LoginForm/ErrorMessage';
+import { Button } from '@/components/Button/Button';
+import { ErrorMessage } from '@/components/LoginForm/ErrorMessage';
 import { loginAction } from '@/app/login/action';
 
 export function LoginForm() {
