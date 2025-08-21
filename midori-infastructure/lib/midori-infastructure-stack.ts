@@ -64,9 +64,9 @@ export class MidoriInfastructureStack extends cdk.Stack {
     );
     
     dbSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4('124.122.31.223/32'), // แทนค่าเป็น IP ที่สองของคุณ
+      ec2.Peer.ipv4('110.168.219.48/32'), // แทนค่าเป็น IP ที่สองของคุณ
       ec2.Port.tcp(5432),
-      'Allow PostgreSQL from 124.122.31.223 Jin'
+      'Allow PostgreSQL from 110.168.219.48 Jin'
     );
     // 3. สร้าง RDS PostgreSQL
     const dbCredentials = rds.Credentials.fromGeneratedSecret('midori_admin', {
