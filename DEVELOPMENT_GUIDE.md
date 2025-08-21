@@ -23,13 +23,21 @@
 - ความปลอดภัยและประสิทธิภาพสูง
 - การเรียนรู้และพัฒนาต่อเนื่อง
 
-### 🏗️ Tech Stack
+### 🏗️ Tech Stack (ปัจจุบัน)
 - **Frontend**: Next.js 15.4.5 + TypeScript + Tailwind CSS
-- **Backend**: Next.js API Routes + Supabase
+- **Backend**: Next.js API Routes + Local Database
 - **AI**: OpenAI + DeepSeek
 - **Editor**: Monaco Editor
 - **Code Preview**: Sandpack
-- **Database**: Supabase (PostgreSQL)
+- **Database**: Local SQLite/PostgreSQL (Development)
+
+### 🏗️ Tech Stack (แผนในอนาคต)
+- **Frontend**: Next.js 15.4.5 + TypeScript + Tailwind CSS
+- **Backend**: Next.js API Routes + Supabase/AWS
+- **AI**: OpenAI + DeepSeek
+- **Editor**: Monaco Editor
+- **Code Preview**: Sandpack
+- **Database**: Supabase (PostgreSQL) / AWS RDS
 
 ---
 
@@ -43,13 +51,16 @@ npm --version
 
 # Git
 git --version
+
+# Local Database (optional)
+# SQLite (built-in) หรือ PostgreSQL
 ```
 
 ### การติดตั้ง
 ```bash
 # Clone โปรเจค
 git clone <repository-url>
-cd midori-winter
+cd midori-production
 
 # ติดตั้ง dependencies
 npm install
@@ -61,9 +72,25 @@ cp .env.example .env.local
 npm run dev
 ```
 
-### Environment Variables
+### Environment Variables (Development)
 ```env
-# Supabase
+# AI Services
+OPENAI_API_KEY=your_openai_key
+DEEPSEEK_API_KEY=your_deepseek_key
+
+# Local Development
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
+
+# Local Database (optional)
+DATABASE_URL=file:./dev.db
+# หรือ
+DATABASE_URL=postgresql://username:password@localhost:5432/midori_dev
+```
+
+### Environment Variables (Future Production)
+```env
+# Supabase (เมื่อ deploy)
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
@@ -71,9 +98,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 OPENAI_API_KEY=your_openai_key
 DEEPSEEK_API_KEY=your_deepseek_key
 
-# Optional
+# Production
 NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://your-domain.com
 ```
 
 ---
@@ -226,11 +253,18 @@ src/
 └── utils/                  # Utility functions
 ```
 
-### Data Flow
+### Data Flow (Development)
 ```
-User Input → AI Analysis → Code Generation → Live Preview → Save/Export
+User Input → AI Analysis → Code Generation → Live Preview → Local Storage
      ↓              ↓              ↓              ↓              ↓
-Chat Interface → Prompt Engine → AI Services → Monaco Editor → Database
+Chat Interface → Prompt Engine → AI Services → Monaco Editor → Local DB
+```
+
+### Data Flow (Future Production)
+```
+User Input → AI Analysis → Code Generation → Live Preview → Cloud Database
+     ↓              ↓              ↓              ↓              ↓
+Chat Interface → Prompt Engine → AI Services → Monaco Editor → Supabase/AWS
 ```
 
 ---
@@ -451,11 +485,10 @@ const ResponseSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const supabase = createServerComponentClient({ cookies });
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
+    // Check authentication (local development)
+    // ในอนาคตจะใช้ Supabase หรือ AWS Cognito
+    const authToken = request.headers.get('authorization');
+    if (!authToken) {
       return NextResponse.json(
         { success: false, error: 'กรุณาเข้าสู่ระบบก่อน' },
         { status: 401 }
@@ -467,7 +500,7 @@ export async function POST(request: NextRequest) {
     const validatedData = RequestSchema.parse(body);
 
     // Process request
-    const result = await processRequest(validatedData, user.id);
+    const result = await processRequest(validatedData);
 
     // Validate response
     const response = ResponseSchema.parse({
@@ -674,7 +707,7 @@ describe('API Route', () => {
 
 ## 🚀 การ Deploy
 
-### Development
+### Development (ปัจจุบัน)
 ```bash
 # รันในโหมด development
 npm run dev
@@ -682,9 +715,25 @@ npm run dev
 # รันในโหมด production locally
 npm run build
 npm start
+
+# ทดสอบใน local environment
+npm run test
+npm run lint
 ```
 
-### Production Deployment
+### Local Production Testing
+```bash
+# Build สำหรับ production
+npm run build
+
+# รัน production build ใน local
+npm start
+
+# ตรวจสอบ performance
+npm run analyze
+```
+
+### Future Production Deployment (แผนในอนาคต)
 ```bash
 # Build สำหรับ production
 npm run build
@@ -697,12 +746,26 @@ npm run deploy
 ```
 
 ### Environment Setup
+
+#### Development Environment (ปัจจุบัน)
+```bash
+# Development environment variables
+OPENAI_API_KEY=your_openai_key
+DEEPSEEK_API_KEY=your_deepseek_key
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
+DATABASE_URL=file:./dev.db
+```
+
+#### Future Production Environment (แผนในอนาคต)
 ```bash
 # Production environment variables
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 OPENAI_API_KEY=your_openai_key
 DEEPSEEK_API_KEY=your_deepseek_key
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=https://your-domain.com
 ```
 
 ---
@@ -726,19 +789,17 @@ npm audit
 npm audit fix
 ```
 
-### การ Monitor Performance
+### การ Monitor Performance (Development)
 ```typescript
 // ✅ ตัวอย่างที่ดี - Performance monitoring
 const trackPerformance = (action: string, duration: number) => {
-  // ส่งข้อมูลไปยัง analytics service
+  // ส่งข้อมูลไปยัง console ใน development
   console.log(`Performance: ${action} took ${duration}ms`);
   
-  // หรือส่งไปยัง external service
-  fetch('/api/analytics/performance', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, duration, timestamp: Date.now() }),
-  });
+  // หรือเก็บใน local storage สำหรับ analysis
+  const performanceData = JSON.parse(localStorage.getItem('performance') || '[]');
+  performanceData.push({ action, duration, timestamp: Date.now() });
+  localStorage.setItem('performance', JSON.stringify(performanceData));
 };
 
 // ใช้ใน component
@@ -752,17 +813,46 @@ useEffect(() => {
 }, []);
 ```
 
-### การ Backup และ Recovery
+### การ Backup และ Recovery (Development)
 ```bash
-# Backup database
-pg_dump your_database > backup.sql
-
-# Restore database
-psql your_database < backup.sql
+# Backup local database
+cp dev.db dev.db.backup
 
 # Backup files
 tar -czf backup.tar.gz src/ public/ package.json
+
+# Restore from backup
+cp dev.db.backup dev.db
 ```
+
+### การ Monitor Performance (Future Production)
+```typescript
+// ✅ ตัวอย่างที่ดี - Production Performance monitoring
+const trackPerformance = (action: string, duration: number) => {
+  // ส่งข้อมูลไปยัง analytics service
+  fetch('/api/analytics/performance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, duration, timestamp: Date.now() }),
+  });
+};
+```
+
+---
+
+## 💰 Cost Management Strategy
+
+### Development Phase (ปัจจุบัน)
+- **Local Development**: ใช้ทรัพยากร local เพื่อประหยัดค่าใช้จ่าย
+- **Free Tier Services**: ใช้บริการฟรีของ AI providers
+- **Open Source Tools**: ใช้เครื่องมือ open source
+- **Minimal Infrastructure**: โครงสร้างพื้นฐานน้อยที่สุด
+
+### Production Phase (แผนในอนาคต)
+- **Gradual Scaling**: ขยายระบบทีละขั้นตามความต้องการ
+- **Cost Monitoring**: ติดตามค่าใช้จ่ายอย่างใกล้ชิด
+- **Resource Optimization**: ปรับแต่งการใช้ทรัพยากรให้เหมาะสม
+- **Revenue Generation**: สร้างรายได้เพื่อรองรับค่าใช้จ่าย
 
 ---
 
@@ -786,5 +876,9 @@ tar -czf backup.tar.gz src/ public/ package.json
 ## 🎯 สรุป
 
 Development Guide นี้เป็นคู่มือสำหรับการพัฒนาโปรเจค Midori ให้ปฏิบัติตาม rules และ guidelines ที่กำหนดไว้เพื่อให้ได้ผลลัพธ์ที่มีคุณภาพสูง ปลอดภัย และบำรุงรักษาง่าย
+
+**ปัจจุบัน** ระบบอยู่ในขั้นตอนการพัฒนาบน local environment เพื่อประหยัดค่าใช้จ่ายและทดสอบฟีเจอร์ต่างๆ ให้สมบูรณ์
+
+**แผนในอนาคต** เมื่อระบบพร้อมและมีงบประมาณ จะ deploy ไปยัง production environment พร้อมกับระบบฐานข้อมูลและโครงสร้างพื้นฐานที่เหมาะสม
 
 หากมีคำถามหรือต้องการความช่วยเหลือเพิ่มเติม กรุณาติดต่อทีมพัฒนา

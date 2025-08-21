@@ -21,20 +21,23 @@ Midori เป็น AI assistant ที่มีบุคลิกเป็น�
 
 ## 🚀 ประวัติการพัฒนา
 
-### Phase 1: MVP (Minimum Viable Product)
+### Phase 1: MVP (Minimum Viable Product) - ปัจจุบัน
 - ✅ ระบบ AI Chat ที่วิเคราะห์ความต้องการ
 - ✅ Code generation จาก AI
 - ✅ Live preview ของเว็บไซต์
 - ✅ Basic authentication
 - ✅ Project management
+- 🔄 **กำลังพัฒนา**: Local development environment
+- 📋 **แผน**: Deploy เมื่อพร้อมและมีงบประมาณ
 
-### Phase 2: Enhancement
-- 🔄 Advanced UI/UX improvements
-- 🔄 Multiple AI model support
-- 🔄 Version control system
-- 🔄 Performance optimizations
+### Phase 2: Enhancement (แผนในอนาคต)
+- 📋 Advanced UI/UX improvements
+- 📋 Multiple AI model support
+- 📋 Version control system
+- 📋 Performance optimizations
+- 📋 Production deployment
 
-### Phase 3: Scale
+### Phase 3: Scale (แผนในอนาคต)
 - 📋 Team collaboration features
 - 📋 GitHub integration
 - 📋 Advanced analytics
@@ -54,19 +57,42 @@ Midori เป็น AI assistant ที่มีบุคลิกเป็น�
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Backend Architecture
+### Backend Architecture (Local Development)
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Next.js API    │───▶│   AI Services   │───▶│   AWS RDS DB    │
+│  Next.js API    │───▶│   AI Services   │───▶│   Local DB      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Rate Limiting  │    │  Token Manager  │    │  AWS Cognito    │
+│  Rate Limiting  │    │  Token Manager  │    │  Local Auth     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### AWS Deployment Topology
+### Development Environment (ปัจจุบัน)
+```
+Local Development
+  │
+  ▼
+Next.js Dev Server (localhost:3000)
+  │                ┌────────────────────────┐
+  ├──► Local Files │  Static Assets/Images  │
+  │                └────────────────────────┘
+  ▼
+Local API Routes ───► Local Database (SQLite/PostgreSQL)
+                        │
+                        ├──► Local File Storage
+                        ├──► Local Session Management
+                        └──► Local Authentication
+
+Development Tools: 
+- Hot Reload
+- Development Logs
+- Local Testing
+- Mock Data
+```
+
+### Future Production Deployment (แผนในอนาคต)
 ```
 User
   │
@@ -114,21 +140,20 @@ Provisioning: AWS CDK (โฟลเดอร์ `Midori/midori-infastructure`)
 - **Maintainability**: โค้ดที่อ่านง่ายและบำรุงรักษาง่าย
 - **Team Collaboration**: ลดความสับสนในการทำงานเป็นทีม
 
-### Why AWS Database Services?
-- **Scalability**: Auto-scaling database resources
-- **Reliability**: High availability with multi-AZ deployment
-- **Security**: Advanced security features and encryption
-- **Performance**: Optimized for high-performance applications
-- **Integration**: Seamless integration with other AWS services
+### Development Database Strategy (ปัจจุบัน)
+- **Local Database**: ใช้ SQLite หรือ PostgreSQL local สำหรับการพัฒนา
+- **File-based Storage**: เก็บไฟล์และข้อมูลใน local filesystem
+- **Session Management**: ใช้ local session storage
+- **Mock Data**: ใช้ข้อมูลจำลองสำหรับการทดสอบ
 
-### AWS Database Architecture
+### Future Production Database Strategy (แผนในอนาคต)
 - **Amazon RDS**: Managed relational database service (PostgreSQL/MySQL)
 - **Amazon DynamoDB**: NoSQL database for real-time applications
 - **Amazon ElastiCache**: In-memory caching for improved performance
 - **Amazon Cognito**: User authentication and authorization
 - **AWS Lambda**: Serverless functions for database operations
 
-### Cloud Platform & Deployment (AWS)
+### Cloud Platform & Deployment (แผนในอนาคต)
 - **Cloud Provider**: ใช้ AWS เป็นผู้ให้บริการคลาวด์หลัก 100% สำหรับทั้งโฮสติ้งและดาต้าเบส
 - **Provisioning**: ใช้ AWS CDK ผ่านสแตก `midori-infastructure` เพื่อประกาศโครงสร้างพื้นฐานเป็นโค้ด (IaC)
 - **Frontend/SSR**: ให้บริการ Next.js API/SSR ผ่าน AWS Lambda (Node.js 18) หลัง API Gateway และเสิร์ฟ Static Assets ผ่าน S3 + CloudFront
@@ -192,25 +217,36 @@ Provisioning: AWS CDK (โฟลเดอร์ `Midori/midori-infastructure`)
 
 ## 🔮 Roadmap
 
-### Q1 2024
+### Q1 2024 (ปัจจุบัน)
 - [x] Basic AI chat system
 - [x] Code generation
 - [x] Live preview
 - [x] User authentication
+- [x] Local development environment
+- [x] Basic project management
 
-### Q2 2024
-- [ ] Advanced UI/UX
+### Q2 2024 (แผน)
+- [ ] Advanced UI/UX improvements
 - [ ] Multiple AI models
-- [ ] Version control
+- [ ] Version control system
 - [ ] Performance optimization
+- [ ] Local testing suite
+- [ ] Documentation improvements
 
-### Q3 2024
-- [ ] Team collaboration
+### Q3 2024 (แผน)
+- [ ] Production deployment preparation
+- [ ] Team collaboration features
 - [ ] GitHub integration
 - [ ] Advanced analytics
+- [ ] Performance monitoring
+- [ ] Security audit
 
-
-
+### Q4 2024 (แผน)
+- [ ] Production deployment
+- [ ] User feedback integration
+- [ ] Scaling preparation
+- [ ] Enterprise features
+- [ ] Advanced collaboration tools
 
 ## 🎨 Brand Identity
 
@@ -234,19 +270,25 @@ Provisioning: AWS CDK (โฟลเดอร์ `Midori/midori-infastructure`)
 
 ## 📈 Success Metrics
 
-### User Engagement
+### Development Metrics (ปัจจุบัน)
+- **Code Quality**: ESLint score, TypeScript coverage
+- **Feature Completion**: เปอร์เซ็นต์ฟีเจอร์ที่เสร็จสมบูรณ์
+- **Bug Count**: จำนวนบั๊กที่พบและแก้ไข
+- **Development Velocity**: ความเร็วในการพัฒนา
+
+### Future User Engagement Metrics (แผน)
 - **Daily Active Users**: จำนวนผู้ใช้ต่อวัน
 - **Session Duration**: ระยะเวลาการใช้งาน
 - **Feature Adoption**: การใช้งานฟีเจอร์ต่างๆ
 - **User Retention**: อัตราการกลับมาใช้
 
-### Technical Performance
+### Future Technical Performance Metrics (แผน)
 - **Page Load Time**: เวลาโหลดหน้าเว็บ
 - **API Response Time**: เวลาตอบสนองของ API
 - **Error Rate**: อัตราข้อผิดพลาด
 - **Uptime**: เวลาที่ระบบทำงาน
 
-### Business Metrics
+### Future Business Metrics (แผน)
 - **User Growth**: การเติบโตของผู้ใช้
 - **Conversion Rate**: อัตราการแปลงผู้ใช้
 - **Customer Satisfaction**: ความพึงพอใจของผู้ใช้
@@ -254,22 +296,45 @@ Provisioning: AWS CDK (โฟลเดอร์ `Midori/midori-infastructure`)
 
 ## 🤝 Community & Ecosystem
 
-### Open Source
+### Development Community (ปัจจุบัน)
+- **Local Development**: ทีมพัฒนาทำงานใน local environment
+- **Code Reviews**: ตรวจสอบโค้ดภายในทีม
+- **Documentation**: เอกสารการพัฒนาภายใน
+- **Testing**: การทดสอบใน local environment
+
+### Future Open Source (แผน)
 - **Contributions**: รับ contributions จากชุมชน
 - **Documentation**: เอกสารที่ครบถ้วน
 - **Examples**: ตัวอย่างการใช้งาน
 - **Tutorials**: บทเรียนการสอน
 
-### Partnerships
+### Future Partnerships (แผน)
 - **AI Providers**: OpenAI, DeepSeek, Anthropic
 - **Cloud Providers**: AWS (Deployment)
 - **AWS Services**: RDS, DynamoDB, Cognito, Lambda, ElastiCache
 - **Design Tools**: Figma, Sketch, Adobe
 - **Development Tools**: VS Code, GitHub, GitLab
 
+## 💰 Cost Management Strategy
+
+### Development Phase (ปัจจุบัน)
+- **Local Development**: ใช้ทรัพยากร local เพื่อประหยัดค่าใช้จ่าย
+- **Free Tier Services**: ใช้บริการฟรีของ AI providers
+- **Open Source Tools**: ใช้เครื่องมือ open source
+- **Minimal Infrastructure**: โครงสร้างพื้นฐานน้อยที่สุด
+
+### Production Phase (แผนในอนาคต)
+- **Gradual Scaling**: ขยายระบบทีละขั้นตามความต้องการ
+- **Cost Monitoring**: ติดตามค่าใช้จ่ายอย่างใกล้ชิด
+- **Resource Optimization**: ปรับแต่งการใช้ทรัพยากรให้เหมาะสม
+- **Revenue Generation**: สร้างรายได้เพื่อรองรับค่าใช้จ่าย
 
 ---
 
 ## 🎯 สรุป
 
-Midori เป็นมากกว่าแค่เครื่องมือสร้างเว็บไซต์ แต่เป็นเพื่อนที่ช่วยให้ทุกคนสามารถสร้างเว็บไซต์ได้อย่างง่ายดาย โดยใช้พลังของ AI และการออกแบบที่เน้นผู้ใช้เป็นศูนย์กลาง ปัจจุบันระบบเลือกใช้ฐานข้อมูลบน AWS (Amazon RDS) และดีพลอยโครงสร้างพื้นฐานทั้งหมดบน AWS ผ่าน AWS CDK พร้อมเสิร์ฟคอนเทนต์ผ่าน CloudFront/S3 และให้บริการ API/SSR ด้วย Lambda เพื่อความเสถียร ปลอดภัย และขยายตัวได้ในระยะยาว
+Midori เป็นมากกว่าแค่เครื่องมือสร้างเว็บไซต์ แต่เป็นเพื่อนที่ช่วยให้ทุกคนสามารถสร้างเว็บไซต์ได้อย่างง่ายดาย โดยใช้พลังของ AI และการออกแบบที่เน้นผู้ใช้เป็นศูนย์กลาง 
+
+**ปัจจุบัน** ระบบอยู่ในขั้นตอนการพัฒนาบน local environment เพื่อประหยัดค่าใช้จ่ายและทดสอบฟีเจอร์ต่างๆ ให้สมบูรณ์ก่อนที่จะ deploy ไปยัง production environment
+
+**แผนในอนาคต** เมื่อระบบพร้อมและมีงบประมาณ จะ deploy ไปยัง AWS โดยใช้ Amazon RDS สำหรับฐานข้อมูล และโครงสร้างพื้นฐานอื่นๆ เพื่อความเสถียร ปลอดภัย และขยายตัวได้ในระยะยาว
