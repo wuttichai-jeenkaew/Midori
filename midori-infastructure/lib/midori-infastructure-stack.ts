@@ -5,17 +5,15 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayv2_integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as iam from 'aws-cdk-lib/aws-iam';
 
 export class MidoriInfastructureStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // 1. สร้าง VPC สำหรับ DB และ Lambda
+    // 1. สร้าง VPC สำหรับ DB และ Lambda (ไม่มี NAT Gateway)
     const vpc = new ec2.Vpc(this, 'MidoriVPC', {
       maxAzs: 2,
-      natGateways: 1,
+      natGateways: 0, // ยกเลิก NAT Gateway
       subnetConfiguration: [
         {
           cidrMask: 24,
@@ -25,7 +23,7 @@ export class MidoriInfastructureStack extends cdk.Stack {
         {
           cidrMask: 24,
           name: 'Private',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // เปลี่ยนเป็น ISOLATED
         },
         {
           cidrMask: 24,
@@ -35,27 +33,41 @@ export class MidoriInfastructureStack extends cdk.Stack {
       ],
     });
 
-    // 2. สร้าง Security Group สำหรับ RDS
+    // 2. เพิ่ม VPC Endpoints ที่จำเป็นสำหรับ Lambda ภายใน VPC
+    const secretsManagerEndpoint = new ec2.InterfaceVpcEndpoint(this, 'SecretsManagerEndpoint', {
+      vpc,
+      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      privateDnsEnabled: true,
+    });
+    const logsEndpoint = new ec2.InterfaceVpcEndpoint(this, 'LogsEndpoint', {
+      vpc,
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      privateDnsEnabled: true,
+    });
+
+    // 3. สร้าง Security Group สำหรับ RDS
     const dbSecurityGroup = new ec2.SecurityGroup(this, 'DatabaseSecurityGroup', {
       vpc,
       description: 'Security group for RDS database',
       allowAllOutbound: false,
     });
 
-    // สร้าง Security Group สำหรับ Lambda
-    const lambdaSecurityGroup = new ec2.SecurityGroup(this, 'LambdaSecurityGroup', {
-      vpc,
-      description: 'Security group for Lambda function',
-      allowAllOutbound: true,
-    });
+    
 
     // ให้ Lambda เข้าถึง RDS
     dbSecurityGroup.addIngressRule(
-      lambdaSecurityGroup,
+      ec2.Peer.ipv4('125.27.255.248/32'),
       ec2.Port.tcp(5432),
-      'Allow Lambda to connect to RDS'
+      'Allow PostgreSQL from 125.27.255.248 Korn'
     );
-
+    
+    dbSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4('124.122.31.223/32'), // แทนค่าเป็น IP ที่สองของคุณ
+      ec2.Port.tcp(5432),
+      'Allow PostgreSQL from 124.122.31.223 Jin'
+    );
     // 3. สร้าง RDS PostgreSQL
     const dbCredentials = rds.Credentials.fromGeneratedSecret('midori_admin', {
       secretName: 'midori/db-credentials',
@@ -69,61 +81,54 @@ export class MidoriInfastructureStack extends cdk.Stack {
       credentials: dbCredentials,
       vpc,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+        subnetType: ec2.SubnetType.PUBLIC,
       },
       securityGroups: [dbSecurityGroup],
       databaseName: 'midori_db',
       backupRetention: cdk.Duration.days(7),
       deletionProtection: false,
+      publiclyAccessible: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // 4. สร้าง Lambda Function สำหรับ API
+    // 4. สร้าง Lambda Functions (ไม่ระบุ SG แยก) และเชื่อมกับ RDS/Secrets
     const apiLambda = new lambda.Function(this, 'MidoriApiLambda', {
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: 'index.handler',
       code: lambda.Code.fromAsset('lambda/api'),
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      securityGroups: [lambdaSecurityGroup],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
       environment: {
         DB_HOST: database.instanceEndpoint.hostname,
         DB_PORT: database.instanceEndpoint.port.toString(),
         DB_NAME: 'midori_db',
-        DB_SECRET_NAME: database.secret!.secretName
+        DB_SECRET_NAME: database.secret!.secretName,
       },
-      timeout: cdk.Duration.seconds(30)
+      timeout: cdk.Duration.seconds(30),
     });
 
-    // สร้าง Migration Lambda
     const migrationLambda = new lambda.Function(this, 'MidoriMigrationLambda', {
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: 'migrate.handler',
       code: lambda.Code.fromAsset('lambda/api'),
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      securityGroups: [lambdaSecurityGroup],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
       environment: {
         DB_HOST: database.instanceEndpoint.hostname,
         DB_PORT: database.instanceEndpoint.port.toString(),
         DB_NAME: 'midori_db',
-        DB_SECRET_NAME: database.secret!.secretName
+        DB_SECRET_NAME: database.secret!.secretName,
       },
-      timeout: cdk.Duration.seconds(60)
+      timeout: cdk.Duration.seconds(60),
     });
 
-    // ให้สิทธิ์ CloudWatch Logs ชัดเจน
-    apiLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['logs:CreateLogGroup','logs:CreateLogStream','logs:PutLogEvents'],
-      resources: ['*'],
-    }));
+    // เปิดให้ VPC Endpoints รับทราฟฟิกจาก Lambda SG อัตโนมัติ
+    secretsManagerEndpoint.connections.allowDefaultPortFrom(apiLambda);
+    secretsManagerEndpoint.connections.allowDefaultPortFrom(migrationLambda);
+    logsEndpoint.connections.allowDefaultPortFrom(apiLambda);
+    logsEndpoint.connections.allowDefaultPortFrom(migrationLambda);
 
-    migrationLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['logs:CreateLogGroup','logs:CreateLogStream','logs:PutLogEvents'],
-      resources: ['*'],
-    }));
-
-    // 5. ให้ Lambda เข้าถึง RDS
+    // อนุญาตให้ Lambda เข้าถึง RDS และ Secrets
     database.grantConnect(apiLambda);
     database.connections.allowDefaultPortFrom(apiLambda);
     database.secret!.grantRead(apiLambda);
@@ -132,7 +137,7 @@ export class MidoriInfastructureStack extends cdk.Stack {
     database.connections.allowDefaultPortFrom(migrationLambda);
     database.secret!.grantRead(migrationLambda);
 
-    // 6. สร้าง API Gateway
+    // 5. สร้าง API Gateway และเชื่อม Lambda
     const httpApi = new apigatewayv2.HttpApi(this, 'MidoriHttpApi', {
       corsPreflight: {
         allowHeaders: ['Content-Type'],
@@ -141,10 +146,9 @@ export class MidoriInfastructureStack extends cdk.Stack {
       },
     });
 
-    // 7. เชื่อม Lambda กับ API Gateway
     const lambdaIntegration = new apigatewayv2_integrations.HttpLambdaIntegration(
       'LambdaIntegration',
-      apiLambda
+      apiLambda,
     );
 
     httpApi.addRoutes({
@@ -153,7 +157,7 @@ export class MidoriInfastructureStack extends cdk.Stack {
       integration: lambdaIntegration,
     });
 
-    // 8. Output URLs และข้อมูลสำคัญ
+    // 6. Output URL ของ API และข้อมูลสำคัญของ Database
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: httpApi.url!,
       description: 'API Gateway URL',
