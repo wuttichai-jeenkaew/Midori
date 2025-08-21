@@ -40,6 +40,5 @@ export async function loginAction(prevState: State, formData: FormData): Promise
     maxAge: 60 * 60 * 24 * 7, // 7 วัน
   });
 
-  // 5) Redirect หลังสำเร็จ
-  redirect('/');
+  return { ok: true, error: null };
 }
