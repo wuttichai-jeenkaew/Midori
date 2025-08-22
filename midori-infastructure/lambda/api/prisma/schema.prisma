@@ -1,9 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -11,44 +7,266 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Visibility {
+  private
+  unlisted
+  public
+}
+
+enum FileType {
+  code
+  text
+  config
+  asset
+}
+
+enum PasswordAlgo {
+  argon2id
+  bcrypt
+  scrypt
+}
+
+enum OAuthProvider {
+  github
+  google
+  line
+  custom_oauth
+}
+
+enum LoginProvider {
+  credentials
+  github
+  google
+  line
+  custom_oauth
+}
+
+enum DeployProvider {
+  vercel
+  github_pages
+  netlify
+}
+
+enum DeployState {
+  queued
+  building
+  ready
+  failed
+}
+
 model User {
-  id           Int       @id @default(autoincrement())
-  username     String    @unique @db.VarChar(50)
-  email        String    @unique @db.VarChar(100)
-  passwordHash String    @map("password_hash") @db.VarChar(255)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id           String            @id @default(uuid())
+  email        String?           @unique
+  displayName  String?
+  avatarUrl    String?
+  locale       String?           @default("th")
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
-  posts    Post[]
-  comments Comment[]
+  // Relations
+  credential   AuthCredential?
+  oauths       OAuthConnection[]
+  sessions     Session[]
+  loginLogs    LoginAttempt[]
+  projects     Project[]
+  generations  Generation[]      // ผู้ใช้ที่เป็นคนสั่ง generate
+  emailVerifications AuthEmailVerification[]
+  passwordResets     AuthPasswordReset[]
 
-  @@map("users")
+  @@index([email])
 }
 
-model Post {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  title     String    @db.VarChar(200)
-  content   String?   @db.Text
-  status    String    @default("draft") @db.VarChar(20)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+model AuthCredential {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  loginEmail         String   @unique
+  passwordHash       String
+  passwordAlgo       PasswordAlgo @default(argon2id)
+  isEmailVerified    Boolean  @default(false)
+  passwordUpdatedAt  DateTime @default(now())
+  createdAt          DateTime @default(now())
 
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comments Comment[]
+  // FKs
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("posts")
+  emailVerifications AuthEmailVerification[]
+  passwordResets     AuthPasswordReset[]
 }
 
-model Comment {
-  id        Int      @id @default(autoincrement())
-  postId    Int      @map("post_id")
-  userId    Int      @map("user_id")
-  content   String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
+model AuthEmailVerification {
+  id         String   @id @default(uuid())
+  userId     String
+  credentialId String?
+  tokenHash  String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
 
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential AuthCredential? @relation(fields: [credentialId], references: [id])
 
-  @@map("comments")
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuthPasswordReset {
+  id         String   @id @default(uuid())
+  userId     String
+  credentialId String?
+  tokenHash  String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential AuthCredential? @relation(fields: [credentialId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model OAuthConnection {
+  id                   String         @id @default(uuid())
+  userId               String
+  provider             OAuthProvider
+  providerAccountId    String
+  accessTokenEncrypted String?
+  refreshTokenEncrypted String?
+  scope                String?
+  expiresAt            DateTime?
+  createdAt            DateTime       @default(now())
+
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  sessionTokenHash String
+  ip               String?
+  userAgent        String?
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id        String         @id @default(uuid())
+  userId    String?
+  loginEmail String?
+  provider  LoginProvider
+  ip        String?
+  success   Boolean
+  createdAt DateTime       @default(now())
+
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Project {
+  id          String      @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  options     Json        @default("{}")
+  visibility  Visibility  @default(private)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files       File[]
+  generations Generation[]
+  snapshots   Snapshot[]
+  deployments Deployment[]
+
+  @@index([userId])
+}
+
+model File {
+  id         String    @id @default(uuid())
+  projectId  String
+  path       String
+  type       FileType  @default(code)
+  isBinary   Boolean   @default(false)
+  content    String?
+  blob       Bytes?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, path])
+  @@index([projectId])
+}
+
+model Generation {
+  id           String    @id @default(uuid())
+  projectId    String
+  userId       String
+  prompt       String
+  options      Json      @default("{}")
+  model        String
+  tokensInput  Int       @default(0)
+  tokensOutput Int       @default(0)
+  costUsd      Decimal   @default(0)
+  createdAt    DateTime  @default(now())
+
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changes      GenerationFile[]
+  snapshots    Snapshot[]
+
+  @@index([projectId])
+  @@index([userId])
+}
+
+model GenerationFile {
+  id            String  @id @default(uuid())
+  generationId  String
+  filePath      String
+  fileContent   String?
+  changeType    String  @default("create") // or use enum ifต้องการ
+
+  generation    Generation @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
+}
+
+model Snapshot {
+  id                String    @id @default(uuid())
+  projectId         String
+  label             String?
+  files             Json
+  fromGenerationId  String?
+  createdAt         DateTime  @default(now())
+
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromGeneration    Generation? @relation(fields: [fromGenerationId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
+
+model Deployment {
+  id        String         @id @default(uuid())
+  projectId String
+  provider  DeployProvider
+  state     DeployState    @default(queued)
+  url       String?
+  meta      Json?
+  createdAt DateTime       @default(now())
+
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
