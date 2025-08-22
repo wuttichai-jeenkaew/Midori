@@ -1,9 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -11,222 +7,266 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =======================
-// USERS
-// =======================
+enum Visibility {
+  private
+  unlisted
+  public
+}
+
+enum FileType {
+  code
+  text
+  config
+  asset
+}
+
+enum PasswordAlgo {
+  argon2id
+  bcrypt
+  scrypt
+}
+
+enum OAuthProvider {
+  github
+  google
+  line
+  custom_oauth
+}
+
+enum LoginProvider {
+  credentials
+  github
+  google
+  line
+  custom_oauth
+}
+
+enum DeployProvider {
+  vercel
+  github_pages
+  netlify
+}
+
+enum DeployState {
+  queued
+  building
+  ready
+  failed
+}
+
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  email        String    @unique
-  displayName  String    @map("display_name")
-  avatarUrl    String?   @map("avatar_url")
-  locale       String    @default("th")
-  isActive     Boolean   @default(true) @map("is_active")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id           String            @id @default(uuid())
+  email        String?           @unique
+  displayName  String?
+  avatarUrl    String?
+  locale       String?           @default("th")
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
-  authCredentials        AuthCredentials?
-  authEmailVerifications AuthEmailVerification[]
-  authPasswordResets     AuthPasswordReset[]
-  oauthConnections       OauthConnection[]
-  sessions               Session[]
-  loginAttempts          LoginAttempt[]
-  projects               Project[]
-  generations            Generation[]
+  // Relations
+  credential   AuthCredential?
+  oauths       OAuthConnection[]
+  sessions     Session[]
+  loginLogs    LoginAttempt[]
+  projects     Project[]
+  generations  Generation[]      // ผู้ใช้ที่เป็นคนสั่ง generate
+  emailVerifications AuthEmailVerification[]
+  passwordResets     AuthPasswordReset[]
+
+  @@index([email])
 }
 
-// =======================
-// AUTH: Credentials
-// =======================
-model AuthCredentials {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String   @unique @db.Uuid @map("user_id")
-  loginEmail        String   @unique @map("login_email")
-  passwordHash      String   @map("password_hash")
-  passwordAlgo      String   @default("argon2id") @map("password_algo")
-  isEmailVerified   Boolean  @default(false) @map("is_email_verified")
-  passwordUpdatedAt DateTime @default(now()) @map("password_updated_at")
-  createdAt         DateTime @default(now()) @map("created_at")
+model AuthCredential {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  loginEmail         String   @unique
+  passwordHash       String
+  passwordAlgo       PasswordAlgo @default(argon2id)
+  isEmailVerified    Boolean  @default(false)
+  passwordUpdatedAt  DateTime @default(now())
+  createdAt          DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // FKs
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailVerifications AuthEmailVerification[]
+  passwordResets     AuthPasswordReset[]
 }
 
-// =======================
-// AUTH: Email Verifications
-// =======================
 model AuthEmailVerification {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid @map("user_id")
-  tokenHash  String   @map("token_hash")
-  expiresAt  DateTime @map("expires_at")
-  usedAt     DateTime? @map("used_at")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  userId     String
+  credentialId String?
+  tokenHash  String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential AuthCredential? @relation(fields: [credentialId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
-// =======================
-// AUTH: Password Resets
-// =======================
 model AuthPasswordReset {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid @map("user_id")
-  tokenHash  String   @map("token_hash")
-  expiresAt  DateTime @map("expires_at")
-  usedAt     DateTime? @map("used_at")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  userId     String
+  credentialId String?
+  tokenHash  String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential AuthCredential? @relation(fields: [credentialId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
-// =======================
-// AUTH: OAuth Connections
-// =======================
-model OauthConnection {
-  id                   String   @id @default(uuid()) @db.Uuid
-  userId               String   @db.Uuid @map("user_id")
-  provider             String
-  providerAccountId    String   @map("provider_account_id")
-  accessTokenEncrypted String?  @map("access_token_encrypted")
-  refreshTokenEncrypted String? @map("refresh_token_encrypted")
+model OAuthConnection {
+  id                   String         @id @default(uuid())
+  userId               String
+  provider             OAuthProvider
+  providerAccountId    String
+  accessTokenEncrypted String?
+  refreshTokenEncrypted String?
   scope                String?
-  expiresAt            DateTime? @map("expires_at")
-  createdAt            DateTime @default(now()) @map("created_at")
+  expiresAt            DateTime?
+  createdAt            DateTime       @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
-// =======================
-// AUTH: Sessions
-// =======================
 model Session {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @db.Uuid @map("user_id")
-  sessionTokenHash String   @map("session_token_hash")
+  id               String   @id @default(uuid())
+  userId           String
+  sessionTokenHash String
   ip               String?
-  userAgent        String?  @map("user_agent")
-  createdAt        DateTime @default(now()) @map("created_at")
-  expiresAt        DateTime @map("expires_at")
+  userAgent        String?
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
-// =======================
-// AUTH: Login Attempts
-// =======================
 model LoginAttempt {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String?  @db.Uuid @map("user_id")
-  loginEmail String? @map("login_email")
-  provider  String
+  id        String         @id @default(uuid())
+  userId    String?
+  loginEmail String?
+  provider  LoginProvider
   ip        String?
   success   Boolean
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime       @default(now())
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
-// =======================
-// APP CORE: Projects
-// =======================
 model Project {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @db.Uuid @map("user_id")
+  id          String      @id @default(uuid())
+  userId      String
   name        String
   description String?
-  options     Json      @default("{}")
-  visibility  String    @default("private")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  options     Json        @default("{}")
+  visibility  Visibility  @default(private)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   files       File[]
   generations Generation[]
   snapshots   Snapshot[]
   deployments Deployment[]
+
+  @@index([userId])
 }
 
-// =======================
-// APP CORE: Files
-// =======================
 model File {
-  id         String   @id @default(uuid()) @db.Uuid
-  projectId  String   @db.Uuid @map("project_id")
+  id         String    @id @default(uuid())
+  projectId  String
   path       String
-  type       String   @default("code")
-  isBinary   Boolean  @default(false) @map("is_binary")
+  type       FileType  @default(code)
+  isBinary   Boolean   @default(false)
   content    String?
   blob       Bytes?
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, path])
+  @@index([projectId])
 }
 
-// =======================
-// APP CORE: Generations
-// =======================
 model Generation {
-  id           String   @id @default(uuid()) @db.Uuid
-  projectId    String   @db.Uuid @map("project_id")
-  userId       String   @db.Uuid @map("user_id")
+  id           String    @id @default(uuid())
+  projectId    String
+  userId       String
   prompt       String
-  options      Json     @default("{}")
+  options      Json      @default("{}")
   model        String
-  tokensInput  Int      @default(0) @map("tokens_input")
-  tokensOutput Int      @default(0) @map("tokens_output")
-  costUsd      Decimal  @default(0.0) @map("cost_usd")
-  createdAt    DateTime @default(now()) @map("created_at")
+  tokensInput  Int       @default(0)
+  tokensOutput Int       @default(0)
+  costUsd      Decimal   @default(0)
+  createdAt    DateTime  @default(now())
 
-  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  generationFiles GenerationFile[]
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changes      GenerationFile[]
   snapshots    Snapshot[]
+
+  @@index([projectId])
+  @@index([userId])
 }
 
-// =======================
-// APP CORE: Generation Files
-// =======================
 model GenerationFile {
-  id            String   @id @default(uuid()) @db.Uuid
-  generationId  String   @db.Uuid @map("generation_id")
-  filePath      String   @map("file_path")
-  fileContent   String?  @map("file_content")
-  changeType    String   @default("create") @map("change_type")
+  id            String  @id @default(uuid())
+  generationId  String
+  filePath      String
+  fileContent   String?
+  changeType    String  @default("create") // or use enum ifต้องการ
 
   generation    Generation @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
 }
 
-// =======================
-// APP CORE: Snapshots
-// =======================
 model Snapshot {
-  id               String   @id @default(uuid()) @db.Uuid
-  projectId        String   @db.Uuid @map("project_id")
-  label            String?
-  files            Json
-  fromGenerationId String?  @db.Uuid @map("from_generation_id")
-  createdAt        DateTime @default(now()) @map("created_at")
+  id                String    @id @default(uuid())
+  projectId         String
+  label             String?
+  files             Json
+  fromGenerationId  String?
+  createdAt         DateTime  @default(now())
 
-  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  fromGeneration   Generation? @relation(fields: [fromGenerationId], references: [id], onDelete: SetNull)
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromGeneration    Generation? @relation(fields: [fromGenerationId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
 }
 
-// =======================
-// APP CORE: Deployments
-// =======================
 model Deployment {
-  id        String   @id @default(uuid()) @db.Uuid
-  projectId String   @db.Uuid @map("project_id")
-  provider  String
-  state     String   @default("queued")
+  id        String         @id @default(uuid())
+  projectId String
+  provider  DeployProvider
+  state     DeployState    @default(queued)
   url       String?
   meta      Json?
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime       @default(now())
 
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
